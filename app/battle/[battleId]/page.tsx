@@ -88,90 +88,165 @@ const TurnIndicator = styled.div<{ $isMyTurn: boolean }>`
 `
 
 const BattleArena = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   background: var(--light-bg);
   border: 4px solid var(--border-primary);
-  padding: 24px;
+  padding: 16px;
   box-shadow: 4px 4px 0px 0px var(--border-primary);
+  min-height: 60vh;
 `
 
-const PlayerSide = styled.div`
-  text-align: center;
+const PlayerSection = styled.div<{ $isOpponent?: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  background: ${props => props.$isOpponent ? 'var(--brutal-red)' : 'var(--brutal-lime)'};
+  border: 3px solid var(--border-primary);
+  border-radius: 8px;
+  ${props => props.$isOpponent && 'transform: rotate(180deg);'}
 `
 
 const PlayerTitle = styled.h3`
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
   color: var(--text-primary);
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   font-family: var(--font-mono);
   text-transform: uppercase;
-  background: var(--brutal-lime);
-  padding: 8px 16px;
-  border: 3px solid var(--border-primary);
-`
-
-const BeastGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-`
-
-const BeastSlot = styled.div<{ $active?: boolean }>`
-  background: ${props => props.$active ? 'var(--brutal-yellow)' : 'var(--brutal-pink)'};
-  border: 3px solid var(--border-primary);
-  padding: 12px;
   text-align: center;
-  box-shadow: 2px 2px 0px 0px var(--border-primary);
+`
+
+const BeastCard = styled.div<{ $isActive?: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: ${props => props.$isActive ? 'var(--brutal-yellow)' : 'var(--brutal-pink)'};
+  border: 3px solid var(--border-primary);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0px 0px var(--border-primary);
+  min-width: 200px;
+  max-width: 280px;
+  width: 100%;
+`
+
+const BeastImage = styled.img`
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  border: 3px solid var(--border-primary);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background: white;
 `
 
 const BeastName = styled.div`
-  font-size: 12px;
+  font-size: 18px;
   font-weight: 900;
   color: var(--text-primary);
   font-family: var(--font-mono);
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  text-align: center;
 `
 
 const BeastHP = styled.div`
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 900;
   color: var(--text-primary);
   font-family: var(--font-mono);
   background: var(--brutal-red);
-  padding: 2px 6px;
+  padding: 8px 16px;
+  border: 3px solid var(--border-primary);
+  border-radius: 6px;
+  text-align: center;
+`
+
+const HPBar = styled.div<{ $percentage: number }>`
+  width: 100%;
+  height: 12px;
+  background: var(--brutal-red);
   border: 2px solid var(--border-primary);
+  border-radius: 6px;
+  margin: 8px 0;
+  overflow: hidden;
+  
+  &::after {
+    content: '';
+    display: block;
+    width: ${props => props.$percentage}%;
+    height: 100%;
+    background: ${props => props.$percentage > 50 ? 'var(--brutal-lime)' : props.$percentage > 25 ? 'var(--brutal-yellow)' : 'var(--brutal-red)'};
+    transition: width 0.3s ease;
+  }
 `
 
 const MoveSelector = styled.div`
   background: var(--light-bg);
   border: 4px solid var(--border-primary);
-  padding: 24px;
+  padding: 20px;
   box-shadow: 4px 4px 0px 0px var(--border-primary);
+  margin-top: 20px;
 `
 
 const MovesGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  
+  @media (min-width: 480px) {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
 `
 
 const MoveButton = styled(Button)`
   background: var(--brutal-cyan);
-  padding: 16px;
-  font-size: 14px;
+  padding: 20px 16px;
+  font-size: 16px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   
   &:hover:not(:disabled) {
     background: var(--brutal-yellow);
+    transform: translate(2px, 2px);
   }
   
   &:disabled {
     background: var(--brutal-red);
     opacity: 0.5;
   }
+  
+  &:active {
+    transform: translate(4px, 4px);
+    box-shadow: none;
+  }
+`
+
+const VSIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  background: var(--brutal-orange);
+  border: 4px solid var(--border-primary);
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  box-shadow: 3px 3px 0px 0px var(--border-primary);
 `
 
 export default function BattlePage() {
@@ -471,55 +546,77 @@ export default function BattlePage() {
         </TurnIndicator>
 
         <BattleArena>
-          <PlayerSide>
-            <PlayerTitle>🛡️ YOUR TEAM</PlayerTitle>
-            <BeastGrid>
-              {myBeasts.map((beast, index) => (
-                <BeastSlot key={beast.id} $active={index === 0}>
-                  {beast.nft_metadata_uri && (
-                    <img 
-                      src={beast.nft_metadata_uri} 
-                      alt={beast.name}
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        objectFit: 'contain',
-                        border: '2px solid var(--border-primary)',
-                        marginBottom: '8px'
-                      }}
-                    />
-                  )}
-                  <BeastName>{beast.name}</BeastName>
-                  <BeastHP>HP: {beast.current_hp || beast.health}/{beast.health}</BeastHP>
-                </BeastSlot>
-              ))}
-            </BeastGrid>
-          </PlayerSide>
-
-          <PlayerSide>
+          {/* Opponent Beast (Top) */}
+          <PlayerSection $isOpponent>
             <PlayerTitle>⚔️ OPPONENT</PlayerTitle>
-            <BeastGrid>
-              {opponentBeasts.map((beast, index) => (
-                <BeastSlot key={beast.id} $active={index === 0}>
-                  {beast.nft_metadata_uri && (
-                    <img 
-                      src={beast.nft_metadata_uri} 
-                      alt={beast.name}
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        objectFit: 'contain',
-                        border: '2px solid var(--border-primary)',
-                        marginBottom: '8px'
-                      }}
-                    />
-                  )}
-                  <BeastName>{beast.name}</BeastName>
-                  <BeastHP>HP: {beast.current_hp || beast.health}/{beast.health}</BeastHP>
-                </BeastSlot>
-              ))}
-            </BeastGrid>
-          </PlayerSide>
+            {opponentBeasts[0] && (
+              <BeastCard $isActive>
+                {opponentBeasts[0].nft_metadata_uri ? (
+                  <BeastImage 
+                    src={opponentBeasts[0].nft_metadata_uri} 
+                    alt={opponentBeasts[0].name}
+                  />
+                ) : (
+                  <div style={{
+                    width: '120px',
+                    height: '120px',
+                    background: 'var(--brutal-pink)',
+                    border: '3px solid var(--border-primary)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '48px',
+                    marginBottom: '12px'
+                  }}>
+                    {opponentBeasts[0].element_type === 'FIRE' ? '🔥' : 
+                     opponentBeasts[0].element_type === 'WATER' ? '🌊' : 
+                     opponentBeasts[0].element_type === 'EARTH' ? '🌍' : '⚡'}
+                  </div>
+                )}
+                <BeastName>{opponentBeasts[0].name}</BeastName>
+                <HPBar $percentage={((opponentBeasts[0].current_hp || opponentBeasts[0].health) / opponentBeasts[0].health) * 100} />
+                <BeastHP>{opponentBeasts[0].current_hp || opponentBeasts[0].health}/{opponentBeasts[0].health} HP</BeastHP>
+              </BeastCard>
+            )}
+          </PlayerSection>
+
+          <VSIndicator>VS</VSIndicator>
+
+          {/* Your Beast (Bottom) */}
+          <PlayerSection>
+            <PlayerTitle>🛡️ YOUR BEAST</PlayerTitle>
+            {myBeasts[0] && (
+              <BeastCard $isActive>
+                {myBeasts[0].nft_metadata_uri ? (
+                  <BeastImage 
+                    src={myBeasts[0].nft_metadata_uri} 
+                    alt={myBeasts[0].name}
+                  />
+                ) : (
+                  <div style={{
+                    width: '120px',
+                    height: '120px',
+                    background: 'var(--brutal-lime)',
+                    border: '3px solid var(--border-primary)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '48px',
+                    marginBottom: '12px'
+                  }}>
+                    {myBeasts[0].element_type === 'FIRE' ? '🔥' : 
+                     myBeasts[0].element_type === 'WATER' ? '🌊' : 
+                     myBeasts[0].element_type === 'EARTH' ? '🌍' : '⚡'}
+                  </div>
+                )}
+                <BeastName>{myBeasts[0].name}</BeastName>
+                <HPBar $percentage={((myBeasts[0].current_hp || myBeasts[0].health) / myBeasts[0].health) * 100} />
+                <BeastHP>{myBeasts[0].current_hp || myBeasts[0].health}/{myBeasts[0].health} HP</BeastHP>
+              </BeastCard>
+            )}
+          </PlayerSection>
         </BattleArena>
 
         {battle?.winner_id && (
@@ -539,9 +636,10 @@ export default function BattlePage() {
               color: 'var(--text-primary)', 
               fontFamily: 'var(--font-mono)',
               textAlign: 'center',
-              margin: '0 0 16px 0'
+              margin: '0 0 20px 0',
+              fontSize: '18px'
             }}>
-              SELECT MOVE FOR {myBeasts[0].name.toUpperCase()}
+              🎯 SELECT MOVE
             </h3>
             <MovesGrid>
               {myBeasts[0].moves?.map((beastMove: any) => (
@@ -550,16 +648,15 @@ export default function BattlePage() {
                   onClick={() => makeMove(beastMove.move.id, opponentBeasts[0]?.id)}
                   disabled={!opponentBeasts[0]}
                 >
-                  {beastMove.move.name}
-                  <br />
-                  <small>DMG: {beastMove.move.damage}</small>
+                  <div>{beastMove.move.name}</div>
+                  <small style={{ marginTop: '4px', opacity: 0.8 }}>DMG: {beastMove.move.damage}</small>
                 </MoveButton>
               )) || (
                 <div style={{ 
-                  gridColumn: '1 / -1', 
                   textAlign: 'center',
                   color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-mono)'
+                  fontFamily: 'var(--font-mono)',
+                  padding: '20px'
                 }}>
                   No moves available
                 </div>
