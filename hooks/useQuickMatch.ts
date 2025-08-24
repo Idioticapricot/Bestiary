@@ -17,12 +17,13 @@ export function useQuickMatch(userId: string, teamId: string) {
     try {
       console.log('🔍 MATCHMAKING: Checking for available rooms...')
       // Check if room exists and is not full
-      const { data: availableRoom } = await supabase
+      const { data: rooms } = await supabase
         .from('battle_rooms')
         .select('*')
         .eq('status', 'waiting')
         .limit(1)
-        .single()
+      
+      const availableRoom = rooms && rooms.length > 0 ? rooms[0] : null
 
       if (availableRoom) {
         console.log('✅ MATCHMAKING: Found available room:', availableRoom.slug)
