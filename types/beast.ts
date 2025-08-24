@@ -10,6 +10,25 @@ export interface Beast {
   imageUrl?: string
   isForSale?: boolean
   moves: Move[]
+  // NFT Integration
+  nftTokenId?: string
+  nftContractAddress?: string
+  blockchain?: string
+  // Additional fields from database
+  ownerId?: string
+  currentExp?: number
+  requiredExp?: number
+  health?: number
+  stamina?: number
+  power?: number
+  abilities?: string[]
+  description?: string
+  aiPrompt?: string
+  nftMetadataUri?: string
+  createdAt?: Date
+  updatedAt?: Date
+  salePrice?: number
+  isInBattle?: boolean
 }
 
 export interface Move {

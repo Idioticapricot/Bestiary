@@ -6,6 +6,8 @@ import { Button } from "../styled/GlobalStyles"
 import { BeastCard as BeastCardComponent } from "../beast/BeastCard"
 import { useWallet } from "../wallet/WalletProvider"
 import { Beast } from "../../types/beast"
+import { ethers } from "ethers"
+import Marketplace from  "../../abi/ERC20MarketplaceWithIndex.json"
 
 interface SellModalProps {
   onClose: () => void
@@ -153,6 +155,8 @@ const BackButton = styled(Button)`
   }
 `
 
+const marketplaceAddress = "0x1163d6A3bf110e1c26D079982c064b939900A9CB"
+const marketplaceAbi = Marketplace.abi
 export function SellModal({ onClose, onSellComplete }: SellModalProps) {
   const [step, setStep] = useState<'select' | 'price'>('select')
   const [selectedBeast, setSelectedBeast] = useState<string | null>(null)
@@ -160,7 +164,10 @@ export function SellModal({ onClose, onSellComplete }: SellModalProps) {
   const [userBeasts, setUserBeasts] = useState<Beast[]>([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [selling, setSelling] = useState(false)
   const { wallet } = useWallet()
+  const [txHash, setTxHash] = useState<string | null>(null)
+  const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'confirming' | 'success' | 'error'>('idle')
 
   useEffect(() => {
     const fetchUserBeasts = async () => {
@@ -183,10 +190,17 @@ export function SellModal({ onClose, onSellComplete }: SellModalProps) {
           const user = await userResponse.json()
           setUserId(user.id)
 
-          const beastsResponse = await fetch(`/api/beasts?userId=${user.id}`)
+          // Fetch beasts with all NFT details including token_id
+          const beastsResponse = await fetch(`/api/beasts?userId=${user.id}&includeForSale=true`)
           if (beastsResponse.ok) {
             const beasts = await beastsResponse.json()
-            setUserBeasts(beasts.filter((beast: Beast) => !beast.isForSale))
+            // Only show beasts that have NFT token ID and are not for sale
+            const availableBeasts = beasts.filter((beast: Beast) => 
+              !beast.isForSale && 
+              beast.nftTokenId && 
+              beast.nftContractAddress
+            )
+            setUserBeasts(availableBeasts)
           }
         }
       } catch (error) {
@@ -211,7 +225,9 @@ export function SellModal({ onClose, onSellComplete }: SellModalProps) {
 
   const handleConfirmSell = async () => {
     if (selectedBeast && price && userId) {
+      setSelling(true)
       try {
+        // First, update the database
         const response = await fetch('/api/marketplace', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -222,18 +238,133 @@ export function SellModal({ onClose, onSellComplete }: SellModalProps) {
           })
         })
 
-        if (response.ok) {
-          onSellComplete?.()
-          onClose()
-        } else {
-          alert('Failed to list beast for sale')
+        if (!response.ok) {
+          throw new Error('Failed to list beast for sale in database')
         }
+
+        // Get the beast data to access NFT information
+        const beastData = userBeasts.find(b => b.id === selectedBeast)
+        if (!beastData) {
+          throw new Error('Beast not found')
+        }
+        
+        if (!beastData.nftTokenId || !beastData.nftContractAddress) {
+          throw new Error('Beast NFT data is missing - tokenID or contract address not found')
+        }
+        
+        console.log('Beast NFT Data:', {
+          tokenId: beastData.nftTokenId,
+          contractAddress: beastData.nftContractAddress,
+          beastName: beastData.name
+        })
+
+        // Now interact with the blockchain marketplace contract
+        const currentProvider = typeof window !== 'undefined' ? (window.avalanche || window.ethereum) : null
+        
+        if (!currentProvider) {
+          throw new Error('Please connect your wallet first')
+        }
+
+        // Convert price to wei (assuming 18 decimals for WAM token)
+        const priceInWei = ethers.parseUnits(price, 18)
+        
+        console.log('Listing beast on blockchain:', {
+          beastName: beastData.name,
+          tokenAddress: beastData.nftContractAddress,
+          tokenId: beastData.nftTokenId,
+          price: priceInWei.toString(),
+          priceInEth: price
+        })
+        
+        // Create ethers provider and signer
+        const provider = new ethers.BrowserProvider(currentProvider)
+        await provider.send('eth_requestAccounts', [])
+        const signer = await provider.getSigner()
+        
+        const marketplace = new ethers.Contract(marketplaceAddress, marketplaceAbi, signer)
+        
+        setTxStatus('pending')
+        
+        // Estimate gas first
+        let gasEstimate
+        try {
+          // Approve the marketplace on the NFT contract
+const nft = new ethers.Contract(
+  beastData.nftContractAddress, // <-- FIXED
+  [
+    "function approve(address to, uint256 tokenId) external"
+  ],
+  signer
+);
+
+// Step 1: Approve marketplace to transfer the NFT
+const approveTx = await nft.approve(marketplaceAddress, beastData.nftTokenId);
+await approveTx.wait(); // wait until mined
+
+gasEstimate = await marketplace.sell.estimateGas(
+  beastData.nftContractAddress,
+  beastData.nftTokenId,
+  priceInWei
+);
+
+        } catch (gasError) {
+          gasEstimate = 500000
+        }
+        
+        // Call the sell function with gas limit
+        const tx = await marketplace.sell(
+          beastData.nftContractAddress,
+          beastData.nftTokenId,
+          priceInWei,
+          { gasLimit: Math.ceil(Number(gasEstimate) * 1.2) }
+        )
+        
+        console.log('Sell TX submitted:', tx.hash)
+        setTxHash(tx.hash)
+        setTxStatus('confirming')
+        
+        // Wait for transaction confirmation
+        const receipt = await tx.wait()
+        console.log('Sale listed in block:', receipt.blockNumber)
+        setTxStatus('success')
+        
       } catch (error) {
         console.error('Error listing beast:', error)
-        alert('Failed to list beast for sale')
+        setTxStatus('error')
+        
+        // Show user-friendly error message
+        let errorMessage = 'Failed to list beast for sale'
+        if (error instanceof Error) {
+          if (error.message.includes('database')) {
+            errorMessage = 'Database error: ' + error.message
+          } else if (error.message.includes('Wallet not connected')) {
+            errorMessage = 'Please connect your wallet'
+          } else if (error.message.includes('NFT information')) {
+            errorMessage = 'Beast NFT data is missing'
+          } else if (error.message.includes('user rejected')) {
+            errorMessage = 'Transaction cancelled by user'
+          } else {
+            errorMessage = 'Blockchain error: ' + error.message
+          }
+        }
+        
+        alert(errorMessage)
+        setSelling(false)
+        setTxStatus('idle')
       }
     }
   }
+
+  // Handle transaction success
+  useEffect(() => {
+    if (txStatus === 'success' && txHash) {
+      console.log("Sale listed successfully on blockchain:", txHash)
+      alert(`✅ Beast successfully listed on marketplace!\nTransaction: ${txHash}`)
+      setSelling(false)
+      onSellComplete?.()
+      onClose()
+    }
+  }, [txStatus, txHash, onSellComplete, onClose])
 
   const selectedBeastData = userBeasts.find(b => b.id === selectedBeast)
 
@@ -251,7 +382,10 @@ export function SellModal({ onClose, onSellComplete }: SellModalProps) {
             ) : !wallet.isConnected ? (
               <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-primary)' }}>Connect wallet to sell beasts</div>
             ) : userBeasts.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-primary)' }}>No beasts available for sale</div>
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-primary)' }}>
+                No NFT beasts available for sale<br/>
+                <small style={{ opacity: 0.7 }}>Only minted NFT beasts can be sold on marketplace</small>
+              </div>
             ) : (
               userBeasts.map((beast) => (
                 <SelectableBeastCard
@@ -288,6 +422,11 @@ export function SellModal({ onClose, onSellComplete }: SellModalProps) {
             <SelectedBeastDisplay>
               <SelectedBeastName>{selectedBeastData.name}</SelectedBeastName>
               <div>Level {selectedBeastData.level} • {selectedBeastData.tier} Tier</div>
+              {selectedBeastData.nftTokenId && (
+                <div style={{ fontSize: '14px', marginTop: '8px', opacity: 0.8 }}>
+                  NFT Token ID: {selectedBeastData.nftTokenId}
+                </div>
+              )}
             </SelectedBeastDisplay>
           )}
           
@@ -311,9 +450,12 @@ export function SellModal({ onClose, onSellComplete }: SellModalProps) {
             </BackButton>
             <PopupButton 
               onClick={handleConfirmSell}
-              disabled={!price || parseFloat(price) <= 0}
+              disabled={!price || parseFloat(price) <= 0 || selling || txStatus !== 'idle'}
             >
-              List for Sale
+              {txStatus === 'pending' ? 'Confirm in Wallet...' : 
+               txStatus === 'confirming' ? 'Confirming Transaction...' : 
+               selling ? 'Processing...' : 
+               'List for Sale'}
             </PopupButton>
           </PopupButtons>
         </SellStep>
