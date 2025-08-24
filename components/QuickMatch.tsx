@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import styled from 'styled-components'
 import { Button } from './styled/GlobalStyles'
 import { useQuickMatch } from '@/hooks/useQuickMatch'
@@ -104,10 +104,27 @@ export function QuickMatch({ userId, teamId, onBattleStart }: QuickMatchProps) {
   const { wallet } = useWallet()
   const { isWaiting, battleId, roomSlug, quickMatch, cancelWait } = useQuickMatch(userId, teamId)
 
-  // Redirect to battle when match found
+  // Trigger battle start when battleId is set
+  useEffect(() => {
+    if (battleId) {
+      console.log('🎯 REDIRECT: Navigating to battle:', battleId)
+      onBattleStart(battleId)
+    }
+  }, [battleId, onBattleStart])
+
+  // Show loading while redirecting
   if (battleId) {
-    onBattleStart(battleId)
-    return null
+    return (
+      <QuickMatchContainer>
+        <QuickMatchTitle>🎮 Quick Match</QuickMatchTitle>
+        <StatusContainer>
+          <StatusText>
+            <LoadingSpinner />
+            Starting battle...
+          </StatusText>
+        </StatusContainer>
+      </QuickMatchContainer>
+    )
   }
 
   if (!wallet.isConnected) {

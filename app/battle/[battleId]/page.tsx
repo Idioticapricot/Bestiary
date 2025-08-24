@@ -87,6 +87,93 @@ const TurnIndicator = styled.div<{ $isMyTurn: boolean }>`
   box-shadow: 4px 4px 0px 0px var(--border-primary);
 `
 
+const BattleArena = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  background: var(--light-bg);
+  border: 4px solid var(--border-primary);
+  padding: 24px;
+  box-shadow: 4px 4px 0px 0px var(--border-primary);
+`
+
+const PlayerSide = styled.div`
+  text-align: center;
+`
+
+const PlayerTitle = styled.h3`
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  background: var(--brutal-lime);
+  padding: 8px 16px;
+  border: 3px solid var(--border-primary);
+`
+
+const BeastGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+`
+
+const BeastSlot = styled.div<{ $active?: boolean }>`
+  background: ${props => props.$active ? 'var(--brutal-yellow)' : 'var(--brutal-pink)'};
+  border: 3px solid var(--border-primary);
+  padding: 12px;
+  text-align: center;
+  box-shadow: 2px 2px 0px 0px var(--border-primary);
+`
+
+const BeastName = styled.div`
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+`
+
+const BeastHP = styled.div`
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  background: var(--brutal-red);
+  padding: 2px 6px;
+  border: 2px solid var(--border-primary);
+`
+
+const MoveSelector = styled.div`
+  background: var(--light-bg);
+  border: 4px solid var(--border-primary);
+  padding: 24px;
+  box-shadow: 4px 4px 0px 0px var(--border-primary);
+`
+
+const MovesGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+`
+
+const MoveButton = styled(Button)`
+  background: var(--brutal-cyan);
+  padding: 16px;
+  font-size: 14px;
+  
+  &:hover:not(:disabled) {
+    background: var(--brutal-yellow);
+  }
+  
+  &:disabled {
+    background: var(--brutal-red);
+    opacity: 0.5;
+  }
+`
+
 export default function BattlePage() {
   const params = useParams()
   const battleId = params.battleId as string
@@ -97,6 +184,8 @@ export default function BattlePage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [waitingForOpponent, setWaitingForOpponent] = useState(false)
+  const [myBeasts, setMyBeasts] = useState<any[]>([])
+  const [opponentBeasts, setOpponentBeasts] = useState<any[]>([])
 
   useEffect(() => {
     const initUser = async () => {
@@ -142,7 +231,19 @@ export default function BattlePage() {
             setWaitingForOpponent(true)
           } else {
             setWaitingForOpponent(false)
+            
+            // Load team beasts
             const isPlayer1 = battleData.player1_id === userId
+            const myTeamId = isPlayer1 ? battleData.player1_team : battleData.player2_team
+            const opponentTeamId = isPlayer1 ? battleData.player2_team : battleData.player1_team
+            
+            if (myTeamId) {
+              loadTeamBeasts(myTeamId, true)
+            }
+            if (opponentTeamId) {
+              loadTeamBeasts(opponentTeamId, false)
+            }
+            
             const isPlayer1Turn = battleData.current_turn % 2 === 1
             setIsMyTurn(isPlayer1 ? isPlayer1Turn : !isPlayer1Turn)
           }
@@ -179,6 +280,87 @@ export default function BattlePage() {
 
     return () => channel.unsubscribe()
   }, [battleId, userId, waitingForOpponent])
+
+  const loadTeamBeasts = async (teamId: string, isMyTeam: boolean) => {
+    try {
+      const { data: team } = await supabase
+        .from('teams')
+        .select(`
+          beast1:beasts!beast1_id(
+            id, name, health, stamina, power, element_type, nft_metadata_uri,
+            moves:beast_moves(
+              move:moves(id, name, damage, element_type, description)
+            )
+          ),
+          beast2:beasts!beast2_id(
+            id, name, health, stamina, power, element_type, nft_metadata_uri,
+            moves:beast_moves(
+              move:moves(id, name, damage, element_type, description)
+            )
+          ),
+          beast3:beasts!beast3_id(
+            id, name, health, stamina, power, element_type, nft_metadata_uri,
+            moves:beast_moves(
+              move:moves(id, name, damage, element_type, description)
+            )
+          )
+        `)
+        .eq('id', teamId)
+        .single()
+
+      if (team) {
+        const beasts = [team.beast1, team.beast2, team.beast3].filter(Boolean)
+        if (isMyTeam) {
+          setMyBeasts(beasts)
+        } else {
+          setOpponentBeasts(beasts)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading team beasts:', error)
+    }
+  }
+
+  const makeMove = async (moveId: string, targetBeastId: string) => {
+    if (!isMyTurn || !myBeasts[0] || battle?.winner_id) return
+
+    console.log('🎯 BATTLE: Making move:', { moveId, targetBeastId })
+
+    try {
+      const response = await fetch('/api/battle/process-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          battleId,
+          playerId: userId,
+          moveId,
+          targetBeastId
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log('✅ BATTLE: Move processed:', {
+          damage: result.damage,
+          newHP: result.newHP,
+          winner: result.winner
+        })
+        
+        // Reload beast data to show updated HP
+        const isPlayer1 = battle.player1_id === userId
+        const myTeamId = isPlayer1 ? battle.player1_team : battle.player2_team
+        const opponentTeamId = isPlayer1 ? battle.player2_team : battle.player1_team
+        
+        if (myTeamId) loadTeamBeasts(myTeamId, true)
+        if (opponentTeamId) loadTeamBeasts(opponentTeamId, false)
+      } else {
+        console.error('❌ BATTLE: Move failed:', result.error)
+      }
+    } catch (error) {
+      console.error('❌ BATTLE: Move failed:', error)
+    }
+  }
 
   if (loading) {
     return (
@@ -257,22 +439,103 @@ export default function BattlePage() {
           {isMyTurn ? '🎯 YOUR TURN' : '⏳ OPPONENT\'S TURN'}
         </TurnIndicator>
 
-        <div style={{
-          background: 'var(--brutal-lime)',
-          border: '4px solid var(--border-primary)',
-          padding: '40px',
-          textAlign: 'center',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '18px',
-          fontWeight: '900',
-          color: 'var(--text-primary)'
-        }}>
-          🎮 REAL-TIME PVP BATTLE IN PROGRESS!
-          <br />
-          <small style={{ fontSize: '14px' }}>
-            Battle system connected and waiting for moves...
-          </small>
-        </div>
+        <BattleArena>
+          <PlayerSide>
+            <PlayerTitle>🛡️ YOUR TEAM</PlayerTitle>
+            <BeastGrid>
+              {myBeasts.map((beast, index) => (
+                <BeastSlot key={beast.id} $active={index === 0}>
+                  {beast.nft_metadata_uri && (
+                    <img 
+                      src={beast.nft_metadata_uri} 
+                      alt={beast.name}
+                      style={{
+                        width: '60px',
+                        height: '60px',
+                        objectFit: 'contain',
+                        border: '2px solid var(--border-primary)',
+                        marginBottom: '8px'
+                      }}
+                    />
+                  )}
+                  <BeastName>{beast.name}</BeastName>
+                  <BeastHP>HP: {beast.current_hp || beast.health}/{beast.health}</BeastHP>
+                </BeastSlot>
+              ))}
+            </BeastGrid>
+          </PlayerSide>
+
+          <PlayerSide>
+            <PlayerTitle>⚔️ OPPONENT</PlayerTitle>
+            <BeastGrid>
+              {opponentBeasts.map((beast, index) => (
+                <BeastSlot key={beast.id} $active={index === 0}>
+                  {beast.nft_metadata_uri && (
+                    <img 
+                      src={beast.nft_metadata_uri} 
+                      alt={beast.name}
+                      style={{
+                        width: '60px',
+                        height: '60px',
+                        objectFit: 'contain',
+                        border: '2px solid var(--border-primary)',
+                        marginBottom: '8px'
+                      }}
+                    />
+                  )}
+                  <BeastName>{beast.name}</BeastName>
+                  <BeastHP>HP: {beast.current_hp || beast.health}/{beast.health}</BeastHP>
+                </BeastSlot>
+              ))}
+            </BeastGrid>
+          </PlayerSide>
+        </BattleArena>
+
+        {battle?.winner_id && (
+          <BattleHeader>
+            <BattleTitle>
+              {battle.winner_id === userId ? '🏆 VICTORY!' : '😔 DEFEAT!'}
+            </BattleTitle>
+            <BattleStatus>
+              {battle.winner_id === userId ? 'You won the battle!' : 'Better luck next time!'}
+            </BattleStatus>
+          </BattleHeader>
+        )}
+
+        {isMyTurn && myBeasts[0] && !battle?.winner_id && (
+          <MoveSelector>
+            <h3 style={{ 
+              color: 'var(--text-primary)', 
+              fontFamily: 'var(--font-mono)',
+              textAlign: 'center',
+              margin: '0 0 16px 0'
+            }}>
+              SELECT MOVE FOR {myBeasts[0].name.toUpperCase()}
+            </h3>
+            <MovesGrid>
+              {myBeasts[0].moves?.map((beastMove: any) => (
+                <MoveButton
+                  key={beastMove.move.id}
+                  onClick={() => makeMove(beastMove.move.id, opponentBeasts[0]?.id)}
+                  disabled={!opponentBeasts[0]}
+                >
+                  {beastMove.move.name}
+                  <br />
+                  <small>DMG: {beastMove.move.damage}</small>
+                </MoveButton>
+              )) || (
+                <div style={{ 
+                  gridColumn: '1 / -1', 
+                  textAlign: 'center',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-mono)'
+                }}>
+                  No moves available
+                </div>
+              )}
+            </MovesGrid>
+          </MoveSelector>
+        )}
       </BattleContainer>
     </AppLayout>
   )

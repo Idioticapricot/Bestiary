@@ -62,6 +62,7 @@ model Beast {
   
   // Stats
   health           Int
+  current_hp       Int?
   stamina          Int
   power            Int
   
