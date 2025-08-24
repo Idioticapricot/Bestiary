@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { ethers } from 'ethers'
 
 const RPC_URL = process.env.AVALANCHE_RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc'
-const CONTRACT_ADDRESS = process.env.NFT_CONTRACT_ADDRESS || '0xb8433deCc52A3a08600d6A13CfA161849C7a27Ee'
+const CONTRACT_ADDRESS = '0x4161c6e2B8f787E1d4d06EeDCb83E00b709d5C7c'
 
 export async function POST(request: NextRequest) {
   try {
