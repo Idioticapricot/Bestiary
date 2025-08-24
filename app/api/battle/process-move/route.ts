@@ -23,13 +23,13 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    if (!battle || !battle.player2_id) {
+    if (!battle || !battle.player2Id) {
       return NextResponse.json({ error: 'Battle not found or incomplete' }, { status: 404 })
     }
 
     // Validate turn
-    const isPlayer1 = battle.player1_id === playerId
-    const isPlayer1Turn = battle.current_turn % 2 === 1
+    const isPlayer1 = battle.player1Id === playerId
+    const isPlayer1Turn = battle.currentTurn % 2 === 1
     const isValidTurn = isPlayer1 ? isPlayer1Turn : !isPlayer1Turn
 
     if (!isValidTurn) {
@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get attacker and target beasts
-    const attackerTeamId = isPlayer1 ? battle.player1_team : battle.player2_team
-    const targetTeamId = isPlayer1 ? battle.player2_team : battle.player1_team
+    const attackerTeamId = isPlayer1 ? battle.player1TeamId : battle.player2TeamId
+    const targetTeamId = isPlayer1 ? battle.player2TeamId : battle.player1TeamId
 
     const [attackerTeam, targetTeam] = await Promise.all([
       prisma.team.findUnique({
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     // Get active beasts (first alive beast)
     const attackerBeast = [attackerTeam.beast1, attackerTeam.beast2, attackerTeam.beast3]
       .filter(Boolean)
-      .find(beast => (beast?.current_hp || beast?.health) > 0)
+      .find(beast => (beast?.health) > 0)
 
     const targetBeast = [targetTeam.beast1, targetTeam.beast2, targetTeam.beast3]
       .filter(Boolean)
@@ -87,25 +87,25 @@ export async function POST(request: NextRequest) {
 
     // Calculate damage
     const damage = calculateDamage(attackerBeast, targetBeast, move)
-    const currentHP = targetBeast.current_hp || targetBeast.health
+    const currentHP = targetBeast.health
     const newHP = Math.max(0, currentHP - damage)
 
     // Update target beast HP
     await prisma.beast.update({
       where: { id: targetBeast.id },
-      data: { current_hp: newHP }
+      data: { health: newHP }
     })
 
     // Record battle action
     await prisma.battleAction.create({
       data: {
-        battle_id: battleId,
-        player_id: playerId,
-        beast_id: attackerBeast.id,
-        move_id: moveId,
-        target_beast_id: targetBeastId,
-        damage_dealt: damage,
-        turn_number: battle.current_turn
+        battleId: battleId,
+        playerId: playerId,
+        beastId: attackerBeast.id,
+        moveId: moveId,
+        targetBeastId: targetBeastId,
+        damageDealt: damage,
+        turnNumber: battle.currentTurn
       }
     })
 
@@ -116,13 +116,13 @@ export async function POST(request: NextRequest) {
       const allTargetBeasts = [targetTeam.beast1, targetTeam.beast2, targetTeam.beast3].filter(Boolean)
       const aliveBeasts = await Promise.all(
         allTargetBeasts.map(async (beast) => {
-          if (beast?.id === targetBeast.id) return { ...beast, current_hp: newHP }
+          if (beast?.id === targetBeast.id) return { ...beast, health: newHP }
           const updated = await prisma.beast.findUnique({ where: { id: beast!.id } })
           return updated
         })
       )
       
-      const hasAliveBeasts = aliveBeasts.some(beast => (beast?.current_hp || beast?.health) > 0)
+      const hasAliveBeasts = aliveBeasts.some(beast => beast?.health > 0)
       if (!hasAliveBeasts) {
         winner = playerId
       }
@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
     const updatedBattle = await prisma.battle.update({
       where: { id: battleId },
       data: {
-        current_turn: battle.current_turn + 1,
-        winner_id: winner,
+        currentTurn: battle.currentTurn + 1,
+        winnerId: winner,
         status: winner ? 'COMPLETED' : 'ACTIVE'
       }
     })
