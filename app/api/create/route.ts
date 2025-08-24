@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Generate image with fal.ai
+    // Only generate image - don't save to database yet
     const enhancedPrompt = `${BASE_PROMPT} ${description}`
     const result = await fal.subscribe("fal-ai/flux-1/schnell", {
       input: {
@@ -24,18 +24,15 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Get random abilities based on rarity
-    const abilities = await prisma.ability.findMany({
-      where: {
-        rarity: rarity === 'legendary' ? 'LEGENDARY' : rarity === 'rare' ? 'RARE' : 'COMMON'
-      },
-      take: rarity === 'legendary' ? 3 : rarity === 'rare' ? 2 : 1
-    })
+    if (!result.data?.images?.[0]?.url) {
+      return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 })
+    }
 
-    // Create beast in database
-    const beast = await prisma.beast.create({
-      data: {
-        ownerId: userId,
+    // Return image and beast data for minting, but don't save to database
+    return NextResponse.json({ 
+      imageUrl: result.data.images[0].url,
+      beastData: {
+        userId,
         name,
         tier: tier.toUpperCase(),
         elementType: elementType.toUpperCase(),
@@ -45,39 +42,11 @@ export async function POST(request: NextRequest) {
         power: stats.power,
         description,
         aiPrompt: enhancedPrompt,
-        nftMetadataUri: result.data.images[0].url, // Temporary - should be IPFS URI
-        abilities: abilities.map(a => a.id)
+        nftMetadataUri: result.data.images[0].url
       }
     })
-
-    // Assign basic moves based on element and level
-    const basicMoves = await prisma.move.findMany({
-      where: {
-        elementType: elementType.toUpperCase(),
-        tier: 'BASIC',
-        minLevel: { lte: 5 }
-      },
-      take: 2
-    })
-
-    // Create beast moves
-    for (let i = 0; i < basicMoves.length; i++) {
-      await prisma.beastMove.create({
-        data: {
-          beastId: beast.id,
-          moveId: basicMoves[i].id,
-          slotIndex: i
-        }
-      })
-    }
-
-    return NextResponse.json({ 
-      beast,
-      imageUrl: result.data.images[0].url,
-      abilities
-    })
   } catch (error) {
-    console.error('Beast creation error:', error)
-    return NextResponse.json({ error: 'Failed to create beast' }, { status: 500 })
+    console.error('Image generation error:', error)
+    return NextResponse.json({ error: 'Failed to generate image' }, { status: 500 })
   }
 }

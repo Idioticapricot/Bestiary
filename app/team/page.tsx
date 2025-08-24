@@ -75,13 +75,13 @@ const TeamSlots = styled.div`
 const TeamSlot = styled.div<{ $filled?: boolean }>`
   background: ${props => props.$filled ? "var(--brutal-lime)" : "var(--light-bg)"};
   border: 4px solid var(--border-primary);
-  padding: 20px;
+  padding: 12px;
   text-align: center;
-  min-height: 120px;
+  min-height: 160px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   cursor: ${props => props.$filled ? "pointer" : "default"};
   transition: all 0.1s ease;
   box-shadow: 2px 2px 0px 0px var(--border-primary);
@@ -93,8 +93,8 @@ const TeamSlot = styled.div<{ $filled?: boolean }>`
 `
 
 const SlotIcon = styled.div`
-  font-size: 32px;
-  margin-bottom: 8px;
+  font-size: 24px;
+  margin-bottom: 4px;
 `
 
 const SlotText = styled.div`
@@ -417,24 +417,26 @@ export default function TeamPage() {
               >
                 {beast ? (
                   <>
+                    
                     {beast.imageUrl ? (
                       <img 
                         src={beast.imageUrl} 
                         alt={beast.name}
                         style={{
-                          width: '48px',
-                          height: '48px',
+                          width: '100px',
+                          height: '100px',
                           objectFit: 'cover',
                           border: '2px solid var(--border-primary)',
-                          marginBottom: '8px',
                           imageRendering: 'pixelated'
                         }}
                       />
                     ) : (
-                      <SlotIcon>{beast.elementType === 'fire' ? '🔥' : beast.elementType === 'water' ? '🌊' : beast.elementType === 'earth' ? '🌍' : '⚡'}</SlotIcon>
+                      <div style={{ height: '70px' }} />
                     )}
-                    <BeastName>{beast.name}</BeastName>
-                    <BeastLevel>LVL {beast.level}</BeastLevel>
+                    <div>
+                      <BeastName>{beast.name}</BeastName>
+                      <BeastLevel>LVL {beast.level}</BeastLevel>
+                    </div>
                   </>
                 ) : (
                   <>

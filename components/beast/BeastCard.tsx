@@ -177,6 +177,7 @@ const ElementType = styled.div<{ $type: string }>`
   justify-content: center;
   font-size: 12px;
   font-weight: 900;
+  z-index: 10;
   background: ${props => {
     switch (props.$type) {
       case 'fire': return 'var(--brutal-red)'

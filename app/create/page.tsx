@@ -452,7 +452,7 @@ const tiers = [
     name: "Basic Tier",
     cost: 50,
     multiplier: 1,
-    abilities: ["Standard Stats"],
+    abilities: ["20 Stat Points"],
     color: "var(--brutal-lime)"
   },
   {
@@ -460,7 +460,7 @@ const tiers = [
     name: "Advanced Tier",
     cost: 100,
     multiplier: 1.3,
-    abilities: ["Enhanced Stats", "Regeneration"],
+    abilities: ["30 Stat Points", "Higher chance of special abilities"],
     color: "var(--brutal-cyan)"
   },
   {
@@ -468,7 +468,7 @@ const tiers = [
     name: "Legendary Tier",
     cost: 200,
     multiplier: 1.6,
-    abilities: ["Superior Stats", "Regeneration", "Critical Strike"],
+    abilities: ["40 Stat Points", "Guaranteed special abilities", "Rare trait bonuses"],
     color: "var(--brutal-yellow)"
   }
 ]
@@ -478,28 +478,28 @@ const beastTypes = [
     id: "fire",
     name: "Fire Beast",
     icon: "🔥",
-    description: "High attack, low defense",
+    description: "",
     baseStats: { hp: 80, attack: 120, defense: 60 }
   },
   {
     id: "water",
     name: "Water Beast",
     icon: "🌊",
-    description: "Balanced stats",
+    description: "",
     baseStats: { hp: 100, attack: 90, defense: 90 }
   },
   {
     id: "earth",
     name: "Earth Beast",
     icon: "🌍",
-    description: "High defense, low speed",
+    description: "",
     baseStats: { hp: 120, attack: 80, defense: 120 }
   },
   {
     id: "electric",
     name: "Electric Beast",
     icon: "⚡",
-    description: "Fast and deadly",
+    description: "",
     baseStats: { hp: 70, attack: 110, defense: 70 }
   }
 ]
@@ -521,6 +521,7 @@ export default function CreatePage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [createdBeast, setCreatedBeast] = useState<any>(null)
+  const [beastDataForMinting, setBeastDataForMinting] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [contractAddress, setContractAddress] = useState(CONTRACT_ADDRESSES.fuji)
@@ -601,15 +602,15 @@ export default function CreatePage() {
           description: beastData.description,
           tier: beastData.tier,
           elementType: beastData.elementType || 'fire',
-          rarity: beastData.rarity || 'common',
+          rarity: beastData.tier === 'legendary' ? 'legendary' : beastData.tier === 'advanced' ? 'rare' : 'common',
           stats: beastData.stats
         })
       })
       
       if (response.ok) {
-        const { imageUrl, beast } = await response.json()
+        const { imageUrl, beastData } = await response.json()
         setGeneratedImage(imageUrl)
-        setCreatedBeast(beast)
+        setBeastDataForMinting(beastData)
       } else {
         const error = await response.json()
         console.error('Error creating beast:', error)
@@ -668,13 +669,26 @@ export default function CreatePage() {
       
       setIsConfirming(true)
       const receipt = await tx.wait()
-      setIsConfirming(false)
-      setSuccess("🎉 NFT minted successfully! Redirecting to home...")
-      setIsLoading(false)
       
-      setTimeout(() => {
-        router.push("/home")
-      }, 2000)
+      // Now save beast to database after successful minting
+      const confirmResponse = await fetch('/api/create/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          beastData: beastDataForMinting,
+          transactionHash: tx.hash
+        })
+      })
+      
+      if (confirmResponse.ok) {
+        const { beast } = await confirmResponse.json()
+        setCreatedBeast(beast)
+        setIsConfirming(false)
+        setSuccess("🎉 NFT minted and beast created successfully!")
+        setIsLoading(false)
+      } else {
+        throw new Error('Failed to save beast after minting')
+      }
       
     } catch (error) {
       if (error instanceof Error) {
@@ -764,21 +778,7 @@ export default function CreatePage() {
                 ))}
               </BeastTypeGrid>
             </div>
-            <div style={{ marginBottom: '16px' }}>
-              <OverviewLabel>RARITY:</OverviewLabel>
-              <TierSelector>
-                {['common', 'rare', 'legendary'].map((rarity) => (
-                  <TierCard
-                    key={rarity}
-                    $selected={beastData.rarity === rarity}
-                    $color={rarity === 'legendary' ? 'var(--brutal-yellow)' : rarity === 'rare' ? 'var(--brutal-cyan)' : 'var(--brutal-lime)'}
-                    onClick={() => setBeastData({...beastData, rarity})}
-                  >
-                    <TierName>{rarity.toUpperCase()}</TierName>
-                  </TierCard>
-                ))}
-              </TierSelector>
-            </div>
+
             <div>
               <OverviewLabel>DESCRIPTION:</OverviewLabel>
               <DescriptionInput
@@ -867,23 +867,41 @@ export default function CreatePage() {
                 </OverviewItem>
               )}
             </OverviewSection>
-            {!createdBeast ? (
+            {!beastDataForMinting ? (
               <MintButton
                 $fullWidth
                 disabled={isGenerating}
                 onClick={handleGenerate}
                 style={{marginBottom: '16px', background: 'var(--brutal-cyan)'}}
               >
-                {isGenerating ? "CREATING BEAST..." : "🐲 CREATE BEAST"}
+                {isGenerating ? "GENERATING IMAGE..." : "🎨 GENERATE IMAGE"}
               </MintButton>
+            ) : createdBeast ? (
+              <div style={{
+                padding: '16px',
+                background: 'var(--brutal-lime)',
+                border: '3px solid var(--border-primary)',
+                textAlign: 'center',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: '900',
+                color: 'var(--text-primary)',
+                marginBottom: '16px'
+              }}>
+                ✅ BEAST CREATED SUCCESSFULLY!
+              </div>
             ) : (
-              <MintButton
-                $fullWidth
-                onClick={() => router.push('/team')}
-                style={{marginBottom: '16px', background: 'var(--brutal-yellow)'}}
-              >
-                ✅ BEAST CREATED! GO TO TEAM
-              </MintButton>
+              <div style={{
+                padding: '16px',
+                background: 'var(--brutal-yellow)',
+                border: '3px solid var(--border-primary)',
+                textAlign: 'center',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: '900',
+                color: 'var(--text-primary)',
+                marginBottom: '16px'
+              }}>
+                🖼️ IMAGE GENERATED! READY TO MINT NFT
+              </div>
             )}
           </Card>
         )
@@ -937,8 +955,7 @@ export default function CreatePage() {
           </CreateSubtitle>
         </CreateHeader>
         
-        {renderWalletSection()}
-        
+
         {error && (
           <div style={{
             background: 'var(--brutal-red)',
@@ -983,7 +1000,7 @@ export default function CreatePage() {
             $fullWidth
             disabled={
               (currentStep === 'tier' && !beastData.tier) ||
-              (currentStep === 'design' && (!beastData.name.trim() || !beastData.elementType || !beastData.rarity || !beastData.description.trim())) ||
+              (currentStep === 'design' && (!beastData.name.trim() || !beastData.elementType || !beastData.description.trim())) ||
               (currentStep === 'stats' && getRemainingPoints() !== 0)
             }
             onClick={handleNext}
@@ -993,7 +1010,7 @@ export default function CreatePage() {
         ) : (
           <MintButton
             $fullWidth
-            disabled={isLoading || isConfirming || !generatedImage || !currentProvider || !!transactionHash}
+            disabled={isLoading || isConfirming || !beastDataForMinting || !currentProvider || !!createdBeast}
             onClick={handleCreate}
           >
             {isLoading ? (
