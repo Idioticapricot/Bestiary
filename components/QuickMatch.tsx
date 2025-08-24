@@ -102,7 +102,7 @@ interface QuickMatchProps {
 
 export function QuickMatch({ userId, teamId, onBattleStart }: QuickMatchProps) {
   const { wallet } = useWallet()
-  const { isSearching, battleId, roomSlug, quickMatch, cancelSearch } = useQuickMatch(userId, teamId)
+  const { isWaiting, battleId, roomSlug, quickMatch, cancelWait } = useQuickMatch(userId, teamId)
 
   // Redirect to battle when match found
   if (battleId) {
@@ -123,7 +123,7 @@ export function QuickMatch({ userId, teamId, onBattleStart }: QuickMatchProps) {
     <QuickMatchContainer>
       <QuickMatchTitle>🎮 Quick Match</QuickMatchTitle>
       
-      {!isSearching ? (
+      {!isWaiting ? (
         <>
           <StatusText>Find an opponent instantly!</StatusText>
           <QuickMatchButton 
@@ -137,30 +137,10 @@ export function QuickMatch({ userId, teamId, onBattleStart }: QuickMatchProps) {
         <StatusContainer>
           <StatusText>
             <LoadingSpinner />
-            {roomSlug ? 'Waiting for opponent...' : 'Finding match...'}
+            Waiting for opponent...
           </StatusText>
           
-          {roomSlug && (
-            <>
-              <p style={{ 
-                fontSize: '14px', 
-                margin: '8px 0', 
-                color: 'var(--text-primary)' 
-              }}>
-                Room Code:
-              </p>
-              <RoomCode>{roomSlug}</RoomCode>
-              <p style={{ 
-                fontSize: '12px', 
-                margin: '8px 0 16px 0', 
-                color: 'var(--text-primary)' 
-              }}>
-                Share this code with a friend to join directly!
-              </p>
-            </>
-          )}
-          
-          <CancelButton onClick={cancelSearch}>
+          <CancelButton onClick={cancelWait}>
             ❌ CANCEL
           </CancelButton>
         </StatusContainer>
