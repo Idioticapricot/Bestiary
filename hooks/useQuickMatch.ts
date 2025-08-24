@@ -94,6 +94,13 @@ export function useQuickMatch(userId: string, teamId: string) {
           // Cleanup channel after battle starts
           channel.unsubscribe()
         }
+        // Handle case where battle was created by Player 2
+        if (payload.new.battle_id && !battleId) {
+          console.log('✅ MATCHMAKING: Battle created by opponent, joining...', payload.new.battle_id)
+          setBattleId(payload.new.battle_id)
+          setIsWaiting(false)
+          channel.unsubscribe()
+        }
       })
       .subscribe()
       
