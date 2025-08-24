@@ -36,6 +36,8 @@ model User {
   marketplaceListings MarketplaceListing[] @relation("Seller")
   purchases      MarketplaceListing[] @relation("Buyer")
   ranking        UserRanking?
+  player1Rooms   BattleRoom[] @relation("Player1Room")
+  player2Rooms   BattleRoom[] @relation("Player2Room")
   
   @@map("users")
 }
@@ -195,6 +197,7 @@ model Battle {
   player1Team  Team        @relation("Player1Team", fields: [player1TeamId], references: [id])
   player2Team  Team?       @relation("Player2Team", fields: [player2TeamId], references: [id])
   actions      BattleAction[]
+  battleRooms  BattleRoom[]
   
   @@map("battles")
 }
@@ -265,6 +268,23 @@ model UserRanking {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@map("user_rankings")
+}
+
+model BattleRoom {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug      String   @unique @db.VarChar(6)
+  player1Id String?  @map("player1_id") @db.Uuid
+  player2Id String?  @map("player2_id") @db.Uuid
+  battleId  String?  @map("battle_id") @db.Uuid
+  status    String   @default("waiting") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  player1 User?   @relation("Player1Room", fields: [player1Id], references: [id], onDelete: Cascade)
+  player2 User?   @relation("Player2Room", fields: [player2Id], references: [id], onDelete: Cascade)
+  battle  Battle? @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  
+  @@map("battle_rooms")
 }
 
 // Enums

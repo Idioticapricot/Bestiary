@@ -92,18 +92,23 @@ const LevelDisplay = styled.div`
 
 const BeastImageContainer = styled.div`
   width: 100%;
-  height: 120px;
+  height: 160px;
   border: 4px solid var(--border-primary);
   margin-bottom: 12px;
   box-shadow: 2px 2px 0px 0px var(--border-primary);
   overflow: hidden;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `
 
 const BeastImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;

@@ -373,6 +373,11 @@ export default function BattlePage() {
   }, [wallet.isConnected, wallet.address])
 
   const selectMode = (mode: 'pvp' | 'pve') => {
+    if (mode === 'pvp') {
+      // Redirect to Quick Match for real PvP
+      window.location.href = '/battle/quick'
+      return
+    }
     setSelectedMode(mode)
     setBattleMode('arena')
   }
