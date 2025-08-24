@@ -86,7 +86,7 @@ const navItems = [
   { href: "/create", icon: Calendar, label: "Create" },
   { href: "/battle", icon: Swords, label: "Battle", isBattle: true },
   { href: "/marketplace", icon: Trophy, label: "Market" },
-  { href: "/leaderboard", icon: User, label: "Ranks" },
+  { href: "/profile", icon: User, label: "Profile" },
 ]
 
 export function BottomNavigation() {

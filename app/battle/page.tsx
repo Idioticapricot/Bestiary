@@ -237,6 +237,8 @@ export default function BattlePage() {
   const { wallet } = useWallet()
 
   const [player2Team, setPlayer2Team] = useState<Beast[]>([])
+  const [currentOpponentIndex, setCurrentOpponentIndex] = useState(0)
+  const [defeatedOpponents, setDefeatedOpponents] = useState<number>(0)
 
   useEffect(() => {
     const loadUserTeam = async () => {
@@ -397,6 +399,10 @@ export default function BattlePage() {
   const startBattle = () => {
     if (!selectedMode || !player1Team[0] || !player2Team[0]) return
     
+    // Reset battle state
+    setCurrentOpponentIndex(0)
+    setDefeatedOpponents(0)
+    
     const player1Beast = convertToBattleBeast(player1Team[0])
     const player2Beast = convertToBattleBeast(player2Team[0])
     
@@ -412,6 +418,7 @@ export default function BattlePage() {
       currentTurn: firstTurn,
       battleLog: [
         selectedMode === 'pve' ? 'PvE Battle started!' : 'PvP Battle started!',
+        `Face ${player2Team.length} opponents!`,
         `${player1Beast.name} vs ${player2Beast.name}`,
         `${firstTurn === 'player1' ? player1Beast.name : player2Beast.name} goes first!`
       ],
@@ -464,17 +471,45 @@ export default function BattlePage() {
     // Check if opponent is defeated
     if (newPlayer2HP <= 0) {
       newLog.push(`${battleState.player2Beast.name} fainted!`)
-      newLog.push(`${battleState.player1Beast.name} wins!`)
+      const newDefeated = defeatedOpponents + 1
+      setDefeatedOpponents(newDefeated)
       
-      setBattleState(prev => prev ? {
-        ...prev,
-        player2Beast: { ...prev.player2Beast, currentHP: 0 },
-        battleLog: newLog,
-        winner: 'player1',
-        isProcessing: false
-      } : null)
-      setSelectedMove(null)
-      return
+      // Check if all opponents are defeated
+      if (newDefeated >= player2Team.length) {
+        newLog.push('All opponents defeated!')
+        newLog.push(`${battleState.player1Beast.name} wins the battle!`)
+        newLog.push('Victory! Gained 100 EXP shared across team!')
+        
+        // Award EXP to team
+        awardExpToTeam()
+        
+        setBattleState(prev => prev ? {
+          ...prev,
+          player2Beast: { ...prev.player2Beast, currentHP: 0 },
+          battleLog: newLog,
+          winner: 'player1',
+          isProcessing: false
+        } : null)
+        setSelectedMove(null)
+        return
+      }
+      
+      // Switch to next opponent
+      const nextOpponentIndex = currentOpponentIndex + 1
+      if (nextOpponentIndex < player2Team.length) {
+        const nextOpponent = convertToBattleBeast(player2Team[nextOpponentIndex])
+        newLog.push(`${nextOpponent.name} enters the battle!`)
+        setCurrentOpponentIndex(nextOpponentIndex)
+        
+        setBattleState(prev => prev ? {
+          ...prev,
+          player2Beast: nextOpponent,
+          battleLog: newLog,
+          isProcessing: false
+        } : null)
+        setSelectedMove(null)
+        return
+      }
     }
 
     // AI turn
@@ -490,16 +525,37 @@ export default function BattlePage() {
     // Check if player is defeated
     if (newPlayer1HP <= 0) {
       newLog.push(`${battleState.player1Beast.name} fainted!`)
-      newLog.push(`${battleState.player2Beast.name} wins!`)
       
-      setBattleState(prev => prev ? {
-        ...prev,
-        player1Beast: { ...prev.player1Beast, currentHP: 0 },
-        player2Beast: { ...prev.player2Beast, currentHP: newPlayer2HP },
-        battleLog: newLog,
-        winner: 'player2',
-        isProcessing: false
-      } : null)
+      // Find next available beast
+      const availableBeasts = battleState.player1Team.filter(b => 
+        b.id !== battleState.player1Beast.id && b.stats.health > 0
+      )
+      
+      if (availableBeasts.length === 0) {
+        newLog.push('All your beasts have fainted!')
+        newLog.push(`${battleState.player2Beast.name} wins!`)
+        
+        setBattleState(prev => prev ? {
+          ...prev,
+          player1Beast: { ...prev.player1Beast, currentHP: 0 },
+          player2Beast: { ...prev.player2Beast, currentHP: newPlayer2HP },
+          battleLog: newLog,
+          winner: 'player2',
+          isProcessing: false
+        } : null)
+      } else {
+        // Auto-switch to next beast
+        const nextBeast = convertToBattleBeast(availableBeasts[0])
+        newLog.push(`${nextBeast.name} enters the battle!`)
+        
+        setBattleState(prev => prev ? {
+          ...prev,
+          player1Beast: nextBeast,
+          player2Beast: { ...prev.player2Beast, currentHP: newPlayer2HP },
+          battleLog: newLog,
+          isProcessing: false
+        } : null)
+      }
     } else {
       setBattleState(prev => prev ? {
         ...prev,
@@ -513,7 +569,7 @@ export default function BattlePage() {
     setSelectedMove(null)
   }
 
-  const handleSwitch = (beastId: string) => {
+  const handleSwitch = async (beastId: string) => {
     if (!battleState || battleState.isProcessing) return
     
     const newBeast = battleState.player1Team.find(b => b.id === beastId)
@@ -525,10 +581,68 @@ export default function BattlePage() {
       ...prev,
       player1Beast: switchedBeast,
       battleLog: [...prev.battleLog, `Switched to ${switchedBeast.name}!`],
-      currentTurn: 'player2'
+      currentTurn: 'player2',
+      isProcessing: true
     } : null)
     
     setShowSwitcher(false)
+    
+    // AI turn after switch
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    const aiMove = battleState.player2Beast.moves[Math.floor(Math.random() * battleState.player2Beast.moves.length)]
+    const aiDamage = calculateDamage(battleState.player2Beast, switchedBeast, aiMove)
+    const newPlayer1HP = Math.max(0, switchedBeast.currentHP - aiDamage)
+    
+    let newLog = [
+      ...battleState.battleLog,
+      `Switched to ${switchedBeast.name}!`,
+      `${battleState.player2Beast.name} used ${aiMove.name}!`,
+      `Dealt ${aiDamage} damage to ${switchedBeast.name}!`
+    ]
+
+    if (newPlayer1HP <= 0) {
+      newLog.push(`${switchedBeast.name} fainted!`)
+      newLog.push(`${battleState.player2Beast.name} wins!`)
+      
+      setBattleState(prev => prev ? {
+        ...prev,
+        player1Beast: { ...switchedBeast, currentHP: 0 },
+        battleLog: newLog,
+        winner: 'player2',
+        isProcessing: false,
+        currentTurn: 'player1'
+      } : null)
+    } else {
+      setBattleState(prev => prev ? {
+        ...prev,
+        player1Beast: { ...switchedBeast, currentHP: newPlayer1HP },
+        battleLog: newLog,
+        isProcessing: false,
+        currentTurn: 'player1'
+      } : null)
+    }
+  }
+
+  const awardExpToTeam = async () => {
+    if (!userId || !battleState) return
+    
+    try {
+      const expPerBeast = Math.floor(100 / battleState.player1Team.length)
+      
+      for (const beast of battleState.player1Team) {
+        await fetch('/api/beasts/exp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            beastId: beast.id,
+            expGained: expPerBeast
+          })
+        })
+      }
+    } catch (error) {
+      console.error('Error awarding EXP:', error)
+    }
   }
 
   const handleEndBattle = () => {
@@ -536,6 +650,8 @@ export default function BattlePage() {
     setSelectedMove(null)
     setBattleMode('select')
     setSelectedMode(null)
+    setCurrentOpponentIndex(0)
+    setDefeatedOpponents(0)
   }
 
   const handleBackToModeSelect = () => {

@@ -664,47 +664,7 @@ export default function ProfilePage() {
         </ActionButtons>
       </BalanceSection>
 
-      <TabContainer>
-        <Tab $active={activeTab === "Live"} onClick={() => setActiveTab("Live")}>
-          Live Battles
-        </Tab>
-        <Tab $active={activeTab === "Tournaments"} onClick={() => setActiveTab("Tournaments")}>
-          My Beasts
-        </Tab>
-        <Tab $active={activeTab === "Ended"} onClick={() => setActiveTab("Ended")}>
-          Battle History
-        </Tab>
-      </TabContainer>
 
-      {activeTab === "Live" && (
-        <EmptyState>
-          <EmptyIcon>⚔️</EmptyIcon>
-          <EmptyTitle>No Active Battles</EmptyTitle>
-          <EmptyDescription>
-            You're not in any battles right now. Select a beast and challenge other trainers to start battling.
-          </EmptyDescription>
-        </EmptyState>
-      )}
-
-      {activeTab === "Tournaments" && (
-        <EmptyState>
-          <EmptyIcon>🐲</EmptyIcon>
-          <EmptyTitle>No Beasts Owned</EmptyTitle>
-          <EmptyDescription>
-            You don't own any battle beasts yet. Visit the marketplace or mint new beasts to start your collection.
-          </EmptyDescription>
-        </EmptyState>
-      )}
-
-      {activeTab === "Ended" && (
-        <EmptyState>
-          <EmptyIcon>📈</EmptyIcon>
-          <EmptyTitle>No Battle History</EmptyTitle>
-          <EmptyDescription>
-            Your completed battles will appear here. Start battling to build your history and track your beast's performance.
-          </EmptyDescription>
-        </EmptyState>
-      )}
 
 
       {showDepositPopup && (

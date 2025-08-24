@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import styled from 'styled-components'
 import { Button } from './styled/GlobalStyles'
-import { useQuickMatch } from '@/hooks/useQuickMatch'
+import { useRouter } from 'next/navigation'
 import { useWallet } from './wallet/WalletProvider'
 
 const QuickMatchContainer = styled.div`
@@ -102,29 +102,14 @@ interface QuickMatchProps {
 
 export function QuickMatch({ userId, teamId, onBattleStart }: QuickMatchProps) {
   const { wallet } = useWallet()
-  const { isWaiting, battleId, roomSlug, quickMatch, cancelWait } = useQuickMatch(userId, teamId)
+  const router = useRouter()
+  const [isStarting, setIsStarting] = useState(false)
 
-  // Trigger battle start when battleId is set
-  useEffect(() => {
-    if (battleId) {
-      console.log('🎯 REDIRECT: Navigating to battle:', battleId)
-      onBattleStart(battleId)
-    }
-  }, [battleId, onBattleStart])
-
-  // Show loading while redirecting
-  if (battleId) {
-    return (
-      <QuickMatchContainer>
-        <QuickMatchTitle>🎮 Quick Match</QuickMatchTitle>
-        <StatusContainer>
-          <StatusText>
-            <LoadingSpinner />
-            Starting battle...
-          </StatusText>
-        </StatusContainer>
-      </QuickMatchContainer>
-    )
+  const startMockBattle = () => {
+    setIsStarting(true)
+    setTimeout(() => {
+      router.push('/battle/mock')
+    }, 500)
   }
 
   if (!wallet.isConnected) {
@@ -140,11 +125,11 @@ export function QuickMatch({ userId, teamId, onBattleStart }: QuickMatchProps) {
     <QuickMatchContainer>
       <QuickMatchTitle>🎮 Quick Match</QuickMatchTitle>
       
-      {!isWaiting ? (
+      {!isStarting ? (
         <>
           <StatusText>Find an opponent instantly!</StatusText>
           <QuickMatchButton 
-            onClick={quickMatch}
+            onClick={startMockBattle}
             $fullWidth
           >
             ⚡ FIND BATTLE
@@ -154,12 +139,8 @@ export function QuickMatch({ userId, teamId, onBattleStart }: QuickMatchProps) {
         <StatusContainer>
           <StatusText>
             <LoadingSpinner />
-            Waiting for opponent...
+            Starting battle...
           </StatusText>
-          
-          <CancelButton onClick={cancelWait}>
-            ❌ CANCEL
-          </CancelButton>
         </StatusContainer>
       )}
     </QuickMatchContainer>
