@@ -67,7 +67,7 @@ export function useQuickMatch(userId: string, teamId: string) {
         console.log('✅ MATCHMAKING: Room created successfully')
         console.log('⏳ MATCHMAKING: Waiting for Player 2 to join...')
         setRoomSlug(slug)
-        listenForOpponent(slug)
+        listenForOpponent(newRoom.id) // Pass room ID instead of slug
       }
 
     } catch (error) {
@@ -76,19 +76,19 @@ export function useQuickMatch(userId: string, teamId: string) {
     }
   }
 
-  const listenForOpponent = (slug: string) => {
-    console.log('👂 MATCHMAKING: Listening for opponent on room:', slug)
+  const listenForOpponent = (roomId: string) => {
+    console.log('👂 MATCHMAKING: Listening for opponent on room:', roomId)
     
     const channel = supabase
-      .channel(`room:${slug}`)
+      .channel(`room:${roomId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'battle_rooms',
-        filter: `slug=eq.${slug}`
+        filter: `id=eq.${roomId}`
       }, async (payload) => {
         if (payload.new.status === 'full') {
-          console.log('🎉 MATCHMAKING: Player 2 joined room:', slug)
+          console.log('🎉 MATCHMAKING: Player 2 joined room:', payload.new.slug)
           console.log('🚀 MATCHMAKING: Starting battle...')
           await startBattle(payload.new)
           // Cleanup channel after battle starts
