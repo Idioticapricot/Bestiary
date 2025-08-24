@@ -115,8 +115,8 @@ export function useQuickMatch(userId: string, teamId: string) {
       .insert({
         player1_id: room.player1_id,
         player2_id: room.player2_id,
-        player1_team_id: player1TeamId,
-        player2_team_id: player2TeamId,
+        player1_team: player1TeamId,
+        player2_team: player2TeamId,
         battle_type: 'PVP',
         status: 'ACTIVE',
         current_turn: 1
