@@ -87,12 +87,14 @@ export function useQuickMatch(userId: string, teamId: string) {
         table: 'battle_rooms',
         filter: `id=eq.${roomId}`
       }, async (payload) => {
+        console.log('🔔 MATCHMAKING: Room update received:', payload.new)
         if (payload.new.status === 'full') {
           console.log('🎉 MATCHMAKING: Player 2 joined room:', payload.new.slug)
           console.log('🚀 MATCHMAKING: Starting battle...')
           await startBattle(payload.new)
           // Cleanup channel after battle starts
           channel.unsubscribe()
+          if (pollInterval) clearInterval(pollInterval)
         }
         // Handle case where battle was created by Player 2
         if (payload.new.battle_id && !battleId) {
@@ -100,12 +102,35 @@ export function useQuickMatch(userId: string, teamId: string) {
           setBattleId(payload.new.battle_id)
           setIsWaiting(false)
           channel.unsubscribe()
+          if (pollInterval) clearInterval(pollInterval)
         }
       })
       .subscribe()
       
-    // Store channel reference for cleanup
-    return channel
+    // Polling fallback in case WebSocket fails
+    const pollInterval = setInterval(async () => {
+      console.log('🔄 MATCHMAKING: Polling room status...')
+      const { data: room } = await supabase
+        .from('battle_rooms')
+        .select('*')
+        .eq('id', roomId)
+        .single()
+        
+      if (room && (room.status === 'full' || room.battle_id)) {
+        console.log('🎉 MATCHMAKING: Room updated via polling:', room)
+        if (room.battle_id) {
+          setBattleId(room.battle_id)
+          setIsWaiting(false)
+        } else {
+          await startBattle(room)
+        }
+        clearInterval(pollInterval)
+        channel.unsubscribe()
+      }
+    }, 2000)
+      
+    // Store references for cleanup
+    return { channel, pollInterval }
   }
 
   const startBattle = async (room: any) => {
