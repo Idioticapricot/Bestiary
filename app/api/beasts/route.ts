@@ -5,6 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
+    const includeForSale = searchParams.get('includeForSale') === 'true'
     
     if (!userId) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 })
@@ -18,8 +19,7 @@ export async function GET(request: NextRequest) {
 
     const beastsData = await prisma.beast.findMany({
       where: { 
-        ownerId: userId,
-        isForSale: false 
+        ownerId: userId
       },
       include: {
         moves: {
@@ -50,6 +50,11 @@ export async function GET(request: NextRequest) {
       rarity: beast.rarity.toLowerCase(),
       imageUrl: beast.nftMetadataUri,
       isForSale: beast.isForSale,
+      // NFT Integration fields
+      nftTokenId: beast.nftTokenId,
+      nftContractAddress: beast.nftContractAddress,
+      blockchain: beast.blockchain,
+      nftMetadataUri: beast.nftMetadataUri,
       moves: beast.moves.map(bm => ({
         id: bm.move.id,
         name: bm.move.name,
