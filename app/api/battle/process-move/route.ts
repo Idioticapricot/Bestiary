@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       data: {
         current_turn: battle.current_turn + 1,
         winner_id: winner,
-        status: winner ? 'COMPLETED' : 'IN_PROGRESS'
+        status: winner ? 'COMPLETED' : 'ACTIVE'
       }
     })
 

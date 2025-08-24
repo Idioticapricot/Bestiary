@@ -91,24 +91,54 @@ export function useQuickMatch(userId: string, teamId: string) {
           console.log('🎉 MATCHMAKING: Player 2 joined room:', slug)
           console.log('🚀 MATCHMAKING: Starting battle...')
           await startBattle(payload.new)
+          // Cleanup channel after battle starts
+          channel.unsubscribe()
         }
       })
       .subscribe()
+      
+    // Store channel reference for cleanup
+    return channel
   }
 
   const startBattle = async (room: any) => {
     console.log('⚔️ BATTLE: Creating battle for room:', room.slug)
     
+    // Check if battle already exists (race condition protection)
+    if (room.battle_id) {
+      console.log('✅ BATTLE: Battle already exists, redirecting...', room.battle_id)
+      setBattleId(room.battle_id)
+      setIsWaiting(false)
+      return
+    }
+    
     // Get team IDs for both players
     const isPlayer1 = room.player1_id === userId
-    const player1TeamId = isPlayer1 ? teamId : null
-    const player2TeamId = !isPlayer1 ? teamId : null
+    
+    // Fetch team IDs for both players from database
+    const [player1Team, player2Team] = await Promise.all([
+      supabase.from('teams').select('id').eq('user_id', room.player1_id).single(),
+      supabase.from('teams').select('id').eq('user_id', room.player2_id).single()
+    ])
+    
+    const player1TeamId = player1Team.data?.id
+    const player2TeamId = player2Team.data?.id
     
     console.log('👤 BATTLE: Player roles -', {
       'Current User': isPlayer1 ? 'Player 1' : 'Player 2',
       'Player 1 ID': room.player1_id,
-      'Player 2 ID': room.player2_id
+      'Player 2 ID': room.player2_id,
+      'Player 1 Team': player1TeamId,
+      'Player 2 Team': player2TeamId
     })
+
+    if (!player1TeamId || !player2TeamId) {
+      console.error('❌ BATTLE: Missing team data for players')
+      console.error('❌ BATTLE: Player 1 Team:', player1TeamId, 'Player 2 Team:', player2TeamId)
+      
+      // Try to create battle anyway and let battle page handle missing teams
+      console.log('⚠️ BATTLE: Proceeding with battle creation despite missing team data')
+    }
 
     // Create battle using existing battles table
     const { data: battle } = await supabase
@@ -116,8 +146,8 @@ export function useQuickMatch(userId: string, teamId: string) {
       .insert({
         player1_id: room.player1_id,
         player2_id: room.player2_id,
-        player1_team: player1TeamId,
-        player2_team: player2TeamId,
+        player1_team: player1TeamId || null,
+        player2_team: player2TeamId || null,
         battle_type: 'PVP',
         status: 'ACTIVE',
         current_turn: 1

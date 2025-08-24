@@ -270,11 +270,28 @@ export default function BattlePage() {
         
         if (payload.new.player2_id && waitingForOpponent) {
           setWaitingForOpponent(false)
+          
+          // Load team data when opponent joins
+          const isPlayer1 = payload.new.player1_id === userId
+          const myTeamId = isPlayer1 ? payload.new.player1_team : payload.new.player2_team
+          const opponentTeamId = isPlayer1 ? payload.new.player2_team : payload.new.player1_team
+          
+          if (myTeamId) loadTeamBeasts(myTeamId, true)
+          if (opponentTeamId) loadTeamBeasts(opponentTeamId, false)
         }
         
         const isPlayer1 = payload.new.player1_id === userId
         const isPlayer1Turn = payload.new.current_turn % 2 === 1
         setIsMyTurn(isPlayer1 ? isPlayer1Turn : !isPlayer1Turn)
+        
+        // Reload team data when turn changes (to show updated HP)
+        if (payload.new.current_turn !== battle?.current_turn) {
+          const myTeamId = isPlayer1 ? payload.new.player1_team : payload.new.player2_team
+          const opponentTeamId = isPlayer1 ? payload.new.player2_team : payload.new.player1_team
+          
+          if (myTeamId) loadTeamBeasts(myTeamId, true)
+          if (opponentTeamId) loadTeamBeasts(opponentTeamId, false)
+        }
       })
       .subscribe()
 
@@ -287,19 +304,19 @@ export default function BattlePage() {
         .from('teams')
         .select(`
           beast1:beasts!beast1_id(
-            id, name, health, stamina, power, element_type, nft_metadata_uri,
+            id, name, health, current_hp, stamina, power, element_type, nft_metadata_uri,
             moves:beast_moves(
               move:moves(id, name, damage, element_type, description)
             )
           ),
           beast2:beasts!beast2_id(
-            id, name, health, stamina, power, element_type, nft_metadata_uri,
+            id, name, health, current_hp, stamina, power, element_type, nft_metadata_uri,
             moves:beast_moves(
               move:moves(id, name, damage, element_type, description)
             )
           ),
           beast3:beasts!beast3_id(
-            id, name, health, stamina, power, element_type, nft_metadata_uri,
+            id, name, health, current_hp, stamina, power, element_type, nft_metadata_uri,
             moves:beast_moves(
               move:moves(id, name, damage, element_type, description)
             )
@@ -421,6 +438,20 @@ export default function BattlePage() {
           <BattleHeader>
             <BattleTitle>⚔️ BATTLE NOT FOUND</BattleTitle>
             <BattleStatus>Invalid battle ID</BattleStatus>
+          </BattleHeader>
+        </BattleContainer>
+      </AppLayout>
+    )
+  }
+
+  // Show loading if battle exists but teams aren't loaded yet
+  if (battle && battle.player2_id && !waitingForOpponent && (myBeasts.length === 0 || opponentBeasts.length === 0)) {
+    return (
+      <AppLayout>
+        <BattleContainer>
+          <BattleHeader>
+            <BattleTitle>⚔️ LOADING TEAMS</BattleTitle>
+            <LoadingSpinner />
           </BattleHeader>
         </BattleContainer>
       </AppLayout>
