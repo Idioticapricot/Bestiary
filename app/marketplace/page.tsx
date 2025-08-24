@@ -7,6 +7,7 @@ import { Card, Button } from "../../components/styled/GlobalStyles"
 import { BeastCard as BeastCardComponent } from "../../components/beast/BeastCard"
 import { SellModal } from "../../components/marketplace/SellModal"
 import { useWallet } from "../../components/wallet/WalletProvider"
+import { ethers } from "ethers"
 
 const MarketplaceContainer = styled.div`
   display: flex;
@@ -197,7 +198,25 @@ export default function MarketplacePage() {
   const [showSellModal, setShowSellModal] = useState(false)
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [buying, setBuying] = useState<string | null>(null)
   const { wallet } = useWallet()
+
+  const marketplaceAddress = "0x3863776EDAb845787a4342FFE29d274A98ebF9Ff"
+  const marketplaceAbi = [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "listingId",
+          "type": "uint256"
+        }
+      ],
+      "name": "buy",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    }
+  ]
 
   useEffect(() => {
     const fetchMarketplaceListings = async () => {
@@ -219,6 +238,84 @@ export default function MarketplacePage() {
 
     fetchMarketplaceListings()
   }, [filter])
+
+  const handleBuyBeast = async (listingId: string, price: string) => {
+    if (!wallet.isConnected) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
+    setBuying(listingId);
+    try {
+      const currentProvider =
+        typeof window !== "undefined" ? (window.avalanche || window.ethereum) : null;
+
+      if (!currentProvider) {
+        throw new Error("Please connect your wallet first");
+      }
+
+      const provider = new ethers.BrowserProvider(currentProvider);
+      await provider.send("eth_requestAccounts", []);
+      const signer = await provider.getSigner();
+
+      const marketplace = new ethers.Contract(marketplaceAddress, marketplaceAbi, signer);
+
+      // ✅ convert price (assuming $WAM has 18 decimals)
+      const priceInWei = ethers.parseUnits(price, 18);
+
+      // ✅ 1. Approve ERC20 spend
+      const erc20 = new ethers.Contract(
+        "0x3841F6eeE655a48945CDD8102fE0dba51a2a8b43", // WAM token address
+        [
+          "function approve(address spender, uint256 amount) external returns (bool)",
+          "function allowance(address owner, address spender) external view returns (uint256)"
+        ],
+        signer
+      );
+
+      const allowance = await erc20.allowance(await signer.getAddress(), marketplaceAddress);
+      if (allowance < priceInWei) {
+        const approveTx = await erc20.approve(marketplaceAddress, priceInWei);
+        await approveTx.wait();
+        console.log("✅ Approved marketplace to spend WAM");
+      }
+
+      // ✅ 2. Call buy WITHOUT value, use default listing ID 1
+      const tx = await marketplace.buy(1, {
+        gasLimit: 300000
+      });
+
+      console.log("Buy TX submitted:", tx.hash);
+      alert(`Transaction submitted! Hash: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      console.log("Purchased in block:", receipt.blockNumber);
+
+      alert(`✅ Beast purchased successfully!\nTransaction: ${tx.hash}`);
+
+      // refresh listings
+      const fetchMarketplaceListings = async () => {
+        try {
+          const params = new URLSearchParams()
+          if (filter !== 'all') params.append('element', filter)
+          
+          const response = await fetch(`/api/marketplace?${params}`)
+          if (response.ok) {
+            const data = await response.json()
+            setListings(data)
+          }
+        } catch (error) {
+          console.error('Error fetching marketplace:', error)
+        }
+      }
+      await fetchMarketplaceListings();
+    } catch (error) {
+      console.error("Error buying beast:", error);
+      alert("Transaction failed: " + (error as any).message);
+    } finally {
+      setBuying(null);
+    }
+  };
 
   const filters = [
     { id: "all", label: "All" },
@@ -263,15 +360,19 @@ export default function MarketplacePage() {
             ) : listings.length === 0 ? (
               <div>No beasts for sale</div>
             ) : (
-              listings.map((listing: any) => (
+              listings.map((listing: any, index: number) => (
                 <MarketplaceBeastCard key={listing.id}>
                   <BeastCardComponent
                     beast={listing.beast}
                     onSelect={() => console.log('Beast selected:', listing.beast.name)}
                   />
                   <BeastPrice>{listing.price} $WAM</BeastPrice>
-                  <BuyButton $fullWidth>
-                    BUY BEAST
+                  <BuyButton 
+                    $fullWidth
+                    onClick={() => handleBuyBeast("1", listing.price)}
+                    disabled={buying === "1" || !wallet.isConnected}
+                  >
+                    {buying === "1" ? 'BUYING...' : 'BUY BEAST'}
                   </BuyButton>
                 </MarketplaceBeastCard>
               ))

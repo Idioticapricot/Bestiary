@@ -155,7 +155,7 @@ const BackButton = styled(Button)`
   }
 `
 
-const marketplaceAddress = "0x1163d6A3bf110e1c26D079982c064b939900A9CB"
+const marketplaceAddress = "0x3863776EDAb845787a4342FFE29d274A98ebF9Ff"
 const marketplaceAbi = Marketplace.abi
 export function SellModal({ onClose, onSellComplete }: SellModalProps) {
   const [step, setStep] = useState<'select' | 'price'>('select')
