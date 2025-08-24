@@ -172,7 +172,7 @@ model Battle {
   player2Id    String?     @map("player2_id") @db.Uuid
   
   // Teams
-  player1TeamId String     @map("player1_team") @db.Uuid
+  player1TeamId String?    @map("player1_team") @db.Uuid
   player2TeamId String?    @map("player2_team") @db.Uuid
   
   // Battle State
@@ -195,7 +195,7 @@ model Battle {
   player1      User        @relation("Player1", fields: [player1Id], references: [id])
   player2      User?       @relation("Player2", fields: [player2Id], references: [id])
   winner       User?       @relation("Winner", fields: [winnerId], references: [id])
-  player1Team  Team        @relation("Player1Team", fields: [player1TeamId], references: [id])
+  player1Team  Team?       @relation("Player1Team", fields: [player1TeamId], references: [id])
   player2Team  Team?       @relation("Player2Team", fields: [player2TeamId], references: [id])
   actions      BattleAction[]
   battleRooms  BattleRoom[]
