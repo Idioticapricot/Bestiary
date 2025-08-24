@@ -322,30 +322,40 @@ export default function BattlePage() {
   }
 
   const makeMove = async (moveId: string, targetBeastId: string) => {
-    if (!isMyTurn || !myBeasts[0]) return
+    if (!isMyTurn || !myBeasts[0] || battle?.winner_id) return
 
     console.log('🎯 BATTLE: Making move:', { moveId, targetBeastId })
 
     try {
-      const { error } = await supabase
-        .from('battle_actions')
-        .insert({
-          battle_id: battleId,
-          player_id: userId,
-          beast_id: myBeasts[0].id,
-          move_id: moveId,
-          target_beast_id: targetBeastId,
-          turn_number: battle.current_turn
+      const response = await fetch('/api/battle/process-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          battleId,
+          playerId: userId,
+          moveId,
+          targetBeastId
         })
+      })
 
-      if (!error) {
-        // Update turn
-        await supabase
-          .from('battles')
-          .update({ current_turn: battle.current_turn + 1 })
-          .eq('id', battleId)
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log('✅ BATTLE: Move processed:', {
+          damage: result.damage,
+          newHP: result.newHP,
+          winner: result.winner
+        })
         
-        console.log('✅ BATTLE: Move completed, turn passed')
+        // Reload beast data to show updated HP
+        const isPlayer1 = battle.player1_id === userId
+        const myTeamId = isPlayer1 ? battle.player1_team : battle.player2_team
+        const opponentTeamId = isPlayer1 ? battle.player2_team : battle.player1_team
+        
+        if (myTeamId) loadTeamBeasts(myTeamId, true)
+        if (opponentTeamId) loadTeamBeasts(opponentTeamId, false)
+      } else {
+        console.error('❌ BATTLE: Move failed:', result.error)
       }
     } catch (error) {
       console.error('❌ BATTLE: Move failed:', error)
@@ -449,7 +459,7 @@ export default function BattlePage() {
                     />
                   )}
                   <BeastName>{beast.name}</BeastName>
-                  <BeastHP>HP: {beast.health}</BeastHP>
+                  <BeastHP>HP: {beast.current_hp || beast.health}/{beast.health}</BeastHP>
                 </BeastSlot>
               ))}
             </BeastGrid>
@@ -474,14 +484,25 @@ export default function BattlePage() {
                     />
                   )}
                   <BeastName>{beast.name}</BeastName>
-                  <BeastHP>HP: {beast.health}</BeastHP>
+                  <BeastHP>HP: {beast.current_hp || beast.health}/{beast.health}</BeastHP>
                 </BeastSlot>
               ))}
             </BeastGrid>
           </PlayerSide>
         </BattleArena>
 
-        {isMyTurn && myBeasts[0] && (
+        {battle?.winner_id && (
+          <BattleHeader>
+            <BattleTitle>
+              {battle.winner_id === userId ? '🏆 VICTORY!' : '😔 DEFEAT!'}
+            </BattleTitle>
+            <BattleStatus>
+              {battle.winner_id === userId ? 'You won the battle!' : 'Better luck next time!'}
+            </BattleStatus>
+          </BattleHeader>
+        )}
+
+        {isMyTurn && myBeasts[0] && !battle?.winner_id && (
           <MoveSelector>
             <h3 style={{ 
               color: 'var(--text-primary)', 
